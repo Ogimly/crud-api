@@ -1,3 +1,5 @@
-import { start } from './app/app';
+import { App } from './app/app';
+import { Controller } from './controller/controller';
 
-start();
+const app = new App(new Controller());
+app.start();

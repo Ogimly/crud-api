@@ -1,18 +1,21 @@
+import 'dotenv/config';
 import http from 'http';
 
-import { BASE_URL, PORT } from './const';
+import { Controller } from '../controller/controller';
+import { DEFAULT_BASE_URL, DEFAULT_PORT } from './const';
 
-export const app = http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'application/json' });
-  res.end(
-    JSON.stringify({
-      data: 'Hello World!',
-    })
-  );
-});
+export class App {
+  private port = process.env.PORT || DEFAULT_PORT;
 
-export const start = () => {
-  app.listen(PORT, () => {
-    console.log(`Server running at ${BASE_URL}:${PORT}/`);
-  });
-};
+  private baseUrl = process.env.BASE_URL || DEFAULT_BASE_URL;
+
+  private server = http.createServer(this.controller.requestHandler);
+
+  constructor(private controller: Controller) {}
+
+  public start() {
+    this.server.listen(this.port, () => {
+      console.log(`Server running at ${this.baseUrl}:${this.port}/`);
+    });
+  }
+}
