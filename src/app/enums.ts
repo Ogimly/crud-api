@@ -17,8 +17,18 @@ export const enum HttpMethods {
 export const enum Messages {
   InternalServerError = 'Internal Server Error',
   RouteNotFound = 'Route not found',
+  UserNotFound = 'User not found',
   UnknownMethod = 'Unknown method',
-  invalidId = 'ID is invalid',
+  JSONInvalid = 'JSON is invalid',
+  IdEmpty = 'ID is empty',
+  IdInvalid = 'ID is invalid',
+  BodyEmpty = 'Body is empty',
+  BodyInvalid = 'Body is invalid',
+  UsernameEmpty = 'Username is empty',
+  AgeEmpty = 'Age is empty',
+  AgeNotNumber = 'Age is not number',
+  HobbiesEmpty = 'Hobbies is not define',
+  HobbiesNotArray = 'Hobbies is not array',
 }
 
 export const enum Endpoints {
