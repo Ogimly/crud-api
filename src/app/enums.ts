@@ -18,6 +18,7 @@ export const enum Messages {
   InternalServerError = 'Internal Server Error',
   RouteNotFound = 'Route not found',
   UnknownMethod = 'Unknown method',
+  invalidId = 'ID is invalid',
 }
 
 export const enum Endpoints {
