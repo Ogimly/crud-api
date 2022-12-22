@@ -13,7 +13,7 @@ export class App {
 
   constructor(private controller: Controller) {}
 
-  public start() {
+  public start(): void {
     this.server.listen(this.port, () => {
       console.log(`Server running at ${this.baseUrl}:${this.port}/`);
     });
