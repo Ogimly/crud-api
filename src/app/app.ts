@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import http from 'http';
 
-import { Controller } from '../controller/controller';
+import { Router } from './router';
 import { DEFAULT_BASE_URL, DEFAULT_PORT } from './const';
 
 export class App {
@@ -9,9 +9,11 @@ export class App {
 
   private baseUrl = process.env.BASE_URL || DEFAULT_BASE_URL;
 
-  private server = http.createServer(this.controller.requestHandler);
+  private server;
 
-  constructor(private controller: Controller) {}
+  constructor(private router: Router) {
+    this.server = http.createServer(this.router.handler.bind(router));
+  }
 
   public start(): void {
     this.server.listen(this.port, () => {

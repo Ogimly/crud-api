@@ -1,5 +1,5 @@
-import { User } from './entity';
-import { usersDB } from './users-db';
+import { User } from '../entity';
+import { usersDB } from './db';
 
 export class UserService {
   private users = usersDB;

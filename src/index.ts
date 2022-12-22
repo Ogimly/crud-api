@@ -1,5 +1,14 @@
 import { App } from './app/app';
-import { Controller } from './controller/controller';
+import { UserService } from './users/in-memory-db/service';
+import { Router } from './app/router';
+import { UserController } from './users/controller';
 
-const app = new App(new Controller());
+const userService = new UserService();
+
+const userController = new UserController(userService);
+
+const router = new Router(userController);
+
+const app = new App(router);
+
 app.start();

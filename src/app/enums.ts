@@ -6,3 +6,20 @@ export const enum HttpCode {
   NotFound = 404,
   InternalServerError = 500,
 }
+
+export const enum HttpMethods {
+  GET = 'GET',
+  POST = 'POST',
+  PUT = 'PUT',
+  DELETE = 'DELETE',
+}
+
+export const enum Messages {
+  InternalServerError = 'Internal Server Error',
+  RouteNotFound = 'Route not found',
+  UnknownMethod = 'Unknown method',
+}
+
+export const enum Endpoints {
+  users = '/api/users',
+}

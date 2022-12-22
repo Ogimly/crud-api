@@ -1,3 +1,3 @@
-import { User } from './entity';
+import { User } from '../entity';
 
 export const usersDB: User[] = [];
