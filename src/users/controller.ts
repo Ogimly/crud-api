@@ -1,7 +1,9 @@
 import { ServerResponse } from 'http';
 
-import { HttpMethods, Messages } from '../app/enums';
-import { sendBadRequestError, sendOk } from '../helpers/sent-responses';
+import { HttpCode, HttpMethods, Messages } from '../app/enums';
+import { AppError } from '../app/error-handler/app-error';
+import { errorHandler } from '../app/error-handler/error-handler';
+import { sendOk } from '../helpers/sent-responses';
 import { UserService } from './in-memory-db/service';
 
 export class UserController {
@@ -10,19 +12,19 @@ export class UserController {
   public handler(
     method: string | undefined,
     id: string | undefined,
-    res: ServerResponse
+    response: ServerResponse
   ): void {
     try {
-      if (!method) throw Error(Messages.UnknownMethod);
+      if (!method) throw new AppError(HttpCode.BadRequest, Messages.UnknownMethod);
 
       if (method === HttpMethods.GET) {
         const result = this.userService.getAllUsers();
-        sendOk(res, result);
+        sendOk(response, result);
       } else {
-        throw Error(Messages.UnknownMethod);
+        throw new AppError(HttpCode.BadRequest, Messages.UnknownMethod);
       }
     } catch (error) {
-      sendBadRequestError(res, Messages.UnknownMethod);
+      errorHandler(error, response);
     }
   }
 }

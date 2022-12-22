@@ -9,8 +9,8 @@ export class UserService {
   }
 
   public getUserById(userId: string): User | null {
-    const res = this.users.find(({ id }) => id === userId);
+    const found = this.users.find(({ id }) => id === userId);
 
-    return res || null;
+    return found || null;
   }
 }
