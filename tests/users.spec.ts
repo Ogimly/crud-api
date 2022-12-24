@@ -47,7 +47,7 @@ describe('1. Test CRUD operations - successfully', () => {
     expect(newUser).toMatchObject(expectedUser);
   });
 
-  it('Should get array with created user', async () => {
+  it('Should get an array with created user', async () => {
     const { body: users, statusCode, header } = await request(server).get(userEndpoint);
 
     const expectedUsers: User[] = [expectedUser];
@@ -58,7 +58,7 @@ describe('1. Test CRUD operations - successfully', () => {
     expect(users).toMatchObject(expectedUsers);
   });
 
-  it('Should get created user by id', async () => {
+  it('Should get created user with a specific id', async () => {
     const {
       body: user,
       statusCode,
@@ -100,7 +100,7 @@ describe('1. Test CRUD operations - successfully', () => {
     expect(body).toBe('');
   });
 
-  it('Should return error message if user not found', async () => {
+  it('Should return an error message if the user not found with a specific id', async () => {
     const { body, statusCode, header } = await request(server).get(
       `${userEndpoint}/${expectedUser.id}`
     );
@@ -110,7 +110,7 @@ describe('1. Test CRUD operations - successfully', () => {
     expect(body).toStrictEqual({ message: Messages.UserNotFound });
   });
 
-  it('Should get empty array after delete user', async () => {
+  it('Should get empty array after deleting a user', async () => {
     const { body: users, statusCode, header } = await request(server).get(userEndpoint);
 
     expect(statusCode).toBe(HttpCode.Ok);
@@ -128,7 +128,7 @@ describe('2. Test CRUD operations - not found', () => {
 
   const id = uuid.v4();
 
-  it('Should return error message if endpoint is empty', async () => {
+  it('Should return an error message if the endpoint is empty', async () => {
     const { body, statusCode, header } = await request(server).get('');
 
     expect(statusCode).toBe(HttpCode.NotFound);
@@ -136,7 +136,7 @@ describe('2. Test CRUD operations - not found', () => {
     expect(body).toStrictEqual({ message: Messages.RouteNotFound });
   });
 
-  it('Should return error message if user endpoint is wrong', async () => {
+  it('Should return an error message if the user endpoint is invalid', async () => {
     const { body, statusCode, header } = await request(server).get(
       `${userEndpoint}/id/smthg`
     );
@@ -146,7 +146,7 @@ describe('2. Test CRUD operations - not found', () => {
     expect(body).toStrictEqual({ message: Messages.RouteNotFound });
   });
 
-  it('Should return error message if user not found', async () => {
+  it('Should return an error message if the user not found with a specific id', async () => {
     const { body, statusCode, header } = await request(server).get(
       `${userEndpoint}/${id}`
     );
@@ -156,7 +156,7 @@ describe('2. Test CRUD operations - not found', () => {
     expect(body).toStrictEqual({ message: Messages.UserNotFound });
   });
 
-  it('Should return error message if user not found on update', async () => {
+  it('Should return an error message if the user not found when updating the user', async () => {
     const { body, statusCode, header } = await request(server)
       .put(`${userEndpoint}/${id}`)
       .send(putBody);
@@ -166,7 +166,7 @@ describe('2. Test CRUD operations - not found', () => {
     expect(body).toStrictEqual({ message: Messages.UserNotFound });
   });
 
-  it('Should return error message if user not found on delete', async () => {
+  it('Should return an error message if the user not found when deleting the user', async () => {
     const { body, statusCode, header } = await request(server).delete(
       `${userEndpoint}/${id}`
     );
@@ -174,5 +174,332 @@ describe('2. Test CRUD operations - not found', () => {
     expect(statusCode).toBe(HttpCode.NotFound);
     expect(header[headerContentType]).toEqual(applicationJSON);
     expect(body).toStrictEqual({ message: Messages.UserNotFound });
+  });
+});
+
+describe('3. Test CRUD operations - bad request', () => {
+  const wrongId = uuid.v4() + '1';
+
+  it('Should return an error message if the method is not implemented', async () => {
+    const { body, statusCode, header } = await request(server).patch(userEndpoint);
+
+    expect(statusCode).toBe(HttpCode.BadRequest);
+    expect(header[headerContentType]).toEqual(applicationJSON);
+    expect(body).toStrictEqual({ message: Messages.UnknownMethod });
+  });
+
+  it('Should return an error message if the id is not uuid when getting the user', async () => {
+    const { body, statusCode, header } = await request(server).get(
+      `${userEndpoint}/${wrongId}`
+    );
+
+    expect(statusCode).toBe(HttpCode.BadRequest);
+    expect(header[headerContentType]).toEqual(applicationJSON);
+    expect(body).toStrictEqual({ message: Messages.IdInvalid });
+  });
+
+  describe('Updating the user', () => {
+    const postBody: Omit<User, 'id'> = {
+      username: 'Leo',
+      age: 30,
+      hobbies: ['js', 'ts'],
+    };
+
+    const putBody: Omit<User, 'id'> = {
+      username: 'Lea',
+      age: 33,
+      hobbies: ['sql'],
+    };
+
+    let id: string;
+
+    it('Should create new user to test user update', async () => {
+      const {
+        body: newUser,
+        statusCode,
+        header,
+      } = await request(server).post(userEndpoint).send(postBody);
+
+      id = newUser.id;
+
+      expect(statusCode).toBe(HttpCode.Created);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+    });
+
+    it('Should return an error message if the id is empty', async () => {
+      const { body, statusCode, header } = await request(server).put(userEndpoint);
+
+      expect(statusCode).toBe(HttpCode.BadRequest);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body).toStrictEqual({ message: Messages.IdEmpty });
+    });
+
+    it('Should return an error message if the id is not uuid', async () => {
+      const { body, statusCode, header } = await request(server).put(
+        `${userEndpoint}/${wrongId}`
+      );
+
+      expect(statusCode).toBe(HttpCode.BadRequest);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body).toStrictEqual({ message: Messages.IdInvalid });
+    });
+
+    it('Should return an error message if the the body is empty', async () => {
+      const wrongBody = JSON.stringify('');
+
+      const { body, statusCode, header } = await request(server)
+        .put(`${userEndpoint}/${id}`)
+        .send(wrongBody);
+
+      expect(statusCode).toBe(HttpCode.BadRequest);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body).toStrictEqual({
+        message: [
+          Messages.BodyEmpty,
+          Messages.UsernameEmpty,
+          Messages.AgeEmpty,
+          Messages.HobbiesEmpty,
+          Messages.HobbiesNotArray,
+        ].join(', '),
+      });
+    });
+
+    it('Should return an error message if the the username is empty', async () => {
+      const wrongBody: any = { ...putBody };
+      wrongBody.username = undefined;
+
+      const { body, statusCode, header } = await request(server)
+        .put(`${userEndpoint}/${id}`)
+        .send(wrongBody);
+
+      expect(statusCode).toBe(HttpCode.BadRequest);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body).toStrictEqual({ message: Messages.UsernameEmpty });
+    });
+
+    it('Should return an error message if the the age is empty', async () => {
+      const wrongBody: any = { ...putBody };
+      wrongBody.age = undefined;
+
+      const { body, statusCode, header } = await request(server)
+        .put(`${userEndpoint}/${id}`)
+        .send(wrongBody);
+
+      expect(statusCode).toBe(HttpCode.BadRequest);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body).toStrictEqual({ message: Messages.AgeEmpty });
+    });
+
+    it('Should return an error message if the the age is not number', async () => {
+      const wrongBody: any = { ...putBody };
+      wrongBody.age = 'age';
+
+      const { body, statusCode, header } = await request(server)
+        .put(`${userEndpoint}/${id}`)
+        .send(wrongBody);
+
+      expect(statusCode).toBe(HttpCode.BadRequest);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body).toStrictEqual({ message: Messages.AgeNotNumber });
+    });
+
+    it('Should update the user if the age is as number', async () => {
+      const wrongBody: any = { ...putBody };
+      wrongBody.age = '44';
+
+      const { body, statusCode, header } = await request(server)
+        .put(`${userEndpoint}/${id}`)
+        .send(wrongBody);
+
+      expect(statusCode).toBe(HttpCode.Ok);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body.age).toStrictEqual(+wrongBody.age);
+    });
+
+    it('Should return an error message if the the hobbies is empty', async () => {
+      const wrongBody: any = { ...putBody };
+      wrongBody.hobbies = undefined;
+
+      const { body, statusCode, header } = await request(server)
+        .put(`${userEndpoint}/${id}`)
+        .send(wrongBody);
+
+      expect(statusCode).toBe(HttpCode.BadRequest);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body).toStrictEqual({
+        message: [Messages.HobbiesEmpty, Messages.HobbiesNotArray].join(', '),
+      });
+    });
+
+    it('Should return an error message if the the hobbies is not array', async () => {
+      const wrongBody: any = { ...putBody };
+      wrongBody.hobbies = 'hobbies';
+
+      const { body, statusCode, header } = await request(server)
+        .put(`${userEndpoint}/${id}`)
+        .send(wrongBody);
+
+      expect(statusCode).toBe(HttpCode.BadRequest);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body).toStrictEqual({ message: Messages.HobbiesNotArray });
+    });
+
+    it('Should update the user if the hobbies is as string array', async () => {
+      const wrongBody: any = { ...putBody };
+      wrongBody.hobbies = [22, true];
+
+      const { body, statusCode, header } = await request(server)
+        .put(`${userEndpoint}/${id}`)
+        .send(wrongBody);
+
+      expect(statusCode).toBe(HttpCode.Ok);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body.hobbies).toStrictEqual(
+        wrongBody.hobbies.map((hobby: any) => hobby.toString())
+      );
+    });
+  });
+
+  describe('Creating the user', () => {
+    const postBody: Omit<User, 'id'> = {
+      username: 'Leo',
+      age: 30,
+      hobbies: ['js', 'ts'],
+    };
+
+    it('Should return an error message if the the body is empty', async () => {
+      const wrongBody = JSON.stringify('');
+
+      const { body, statusCode, header } = await request(server)
+        .post(userEndpoint)
+        .send(wrongBody);
+
+      expect(statusCode).toBe(HttpCode.BadRequest);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body).toStrictEqual({
+        message: [
+          Messages.BodyEmpty,
+          Messages.UsernameEmpty,
+          Messages.AgeEmpty,
+          Messages.HobbiesEmpty,
+          Messages.HobbiesNotArray,
+        ].join(', '),
+      });
+    });
+
+    it('Should return an error message if the the username is empty', async () => {
+      const wrongBody: any = { ...postBody };
+      wrongBody.username = undefined;
+
+      const { body, statusCode, header } = await request(server)
+        .post(userEndpoint)
+        .send(wrongBody);
+
+      expect(statusCode).toBe(HttpCode.BadRequest);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body).toStrictEqual({ message: Messages.UsernameEmpty });
+    });
+
+    it('Should return an error message if the the age is empty', async () => {
+      const wrongBody: any = { ...postBody };
+      wrongBody.age = undefined;
+
+      const { body, statusCode, header } = await request(server)
+        .post(userEndpoint)
+        .send(wrongBody);
+
+      expect(statusCode).toBe(HttpCode.BadRequest);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body).toStrictEqual({ message: Messages.AgeEmpty });
+    });
+
+    it('Should return an error message if the the age is not number', async () => {
+      const wrongBody: any = { ...postBody };
+      wrongBody.age = 'age';
+
+      const { body, statusCode, header } = await request(server)
+        .post(userEndpoint)
+        .send(wrongBody);
+
+      expect(statusCode).toBe(HttpCode.BadRequest);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body).toStrictEqual({ message: Messages.AgeNotNumber });
+    });
+
+    it('Should create new user if the age is as number', async () => {
+      const wrongBody: any = { ...postBody };
+      wrongBody.age = '44';
+
+      const { body, statusCode, header } = await request(server)
+        .post(userEndpoint)
+        .send(wrongBody);
+
+      expect(statusCode).toBe(HttpCode.Created);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body.age).toStrictEqual(+wrongBody.age);
+    });
+
+    it('Should return an error message if the the hobbies is empty', async () => {
+      const wrongBody: any = { ...postBody };
+      wrongBody.hobbies = undefined;
+
+      const { body, statusCode, header } = await request(server)
+        .post(userEndpoint)
+        .send(wrongBody);
+
+      expect(statusCode).toBe(HttpCode.BadRequest);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body).toStrictEqual({
+        message: [Messages.HobbiesEmpty, Messages.HobbiesNotArray].join(', '),
+      });
+    });
+
+    it('Should return an error message if the the hobbies is not array', async () => {
+      const wrongBody: any = { ...postBody };
+      wrongBody.hobbies = 'hobbies';
+
+      const { body, statusCode, header } = await request(server)
+        .post(userEndpoint)
+        .send(wrongBody);
+
+      expect(statusCode).toBe(HttpCode.BadRequest);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body).toStrictEqual({ message: Messages.HobbiesNotArray });
+    });
+
+    it('Should create new user if the hobbies is as string array', async () => {
+      const wrongBody: any = { ...postBody };
+      wrongBody.hobbies = [22, true];
+
+      const { body, statusCode, header } = await request(server)
+        .post(userEndpoint)
+        .send(wrongBody);
+
+      expect(statusCode).toBe(HttpCode.Created);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body.hobbies).toStrictEqual(
+        wrongBody.hobbies.map((hobby: any) => hobby.toString())
+      );
+    });
+  });
+
+  describe('Deleting the user', () => {
+    it('Should return an error message if the id is empty', async () => {
+      const { body, statusCode, header } = await request(server).delete(userEndpoint);
+
+      expect(statusCode).toBe(HttpCode.BadRequest);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body).toStrictEqual({ message: Messages.IdEmpty });
+    });
+
+    it('Should return an error message if the id is not uuid', async () => {
+      const { body, statusCode, header } = await request(server).delete(
+        `${userEndpoint}/${wrongId}`
+      );
+
+      expect(statusCode).toBe(HttpCode.BadRequest);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body).toStrictEqual({ message: Messages.IdInvalid });
+    });
   });
 });

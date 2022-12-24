@@ -31,7 +31,6 @@ export class UserController {
         throw new AppError(HttpCode.BadRequest, Messages.UnknownMethod);
       }
     } catch (error) {
-      console.log(error);
       errorHandler(error, response);
     }
   }
