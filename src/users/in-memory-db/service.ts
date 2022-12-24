@@ -12,7 +12,7 @@ export class UserService {
     return this.users;
   }
 
-  public getById(userId: string): User | undefined {
+  public getOne(userId: string): User | undefined {
     return this.users.find(({ id }) => id === userId);
   }
 
@@ -22,7 +22,17 @@ export class UserService {
     return newUser;
   }
 
-  public deleteById(userId: string): boolean {
+  public update(userId: string, body: Omit<User, 'id'>): User | undefined {
+    const foundUser = this.users.find(({ id }) => id === userId);
+
+    if (!foundUser) return foundUser;
+
+    Object.assign(foundUser, body);
+
+    return foundUser;
+  }
+
+  public delete(userId: string): boolean {
     const index = this.users.findIndex(({ id }) => id === userId);
 
     if (index === -1) return false;

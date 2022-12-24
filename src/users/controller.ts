@@ -24,7 +24,7 @@ export class UserController {
       } else if (method === HttpMethods.POST) {
         await this.POSTHandler(request, response);
       } else if (method === HttpMethods.PUT) {
-        await this.PUTHandler(request, response);
+        await this.PUTHandler(id, request, response);
       } else if (method === HttpMethods.DELETE) {
         this.DELETEHandler(id, response);
       } else {
@@ -43,7 +43,7 @@ export class UserController {
       if (!resultValidate.validate)
         throw new AppError(HttpCode.BadRequest, resultValidate.error);
 
-      const user = this.userService.getById(id);
+      const user = this.userService.getOne(id);
 
       if (!user) throw new AppError(HttpCode.NotFound, Messages.UserNotFound);
 
@@ -71,7 +71,28 @@ export class UserController {
     }
   }
 
-  private PUTHandler(request: IncomingMessage, response: ServerResponse): void {}
+  private async PUTHandler(
+    id: string | undefined,
+    request: IncomingMessage,
+    response: ServerResponse
+  ): Promise<void> {
+    const resultValidateId = this.userService.validateId(id);
+
+    if (!resultValidateId.validate)
+      throw new AppError(HttpCode.BadRequest, resultValidateId.error);
+
+    const body = await this.getBody(request);
+
+    const resultValidateBody = this.userService.validateBody(body);
+
+    if (!resultValidateBody.validate)
+      throw new AppError(HttpCode.BadRequest, resultValidateBody.error);
+
+    if (resultValidateBody.body) {
+      const result = this.userService.update(id!, resultValidateBody.body);
+      this.sendResponse(HttpCode.Ok, response, result);
+    }
+  }
 
   private DELETEHandler(id: string | undefined, response: ServerResponse): void {
     const resultValidate = this.userService.validateId(id);
@@ -79,7 +100,7 @@ export class UserController {
     if (!resultValidate.validate)
       throw new AppError(HttpCode.BadRequest, resultValidate.error);
 
-    const result = this.userService.deleteById(id!);
+    const result = this.userService.delete(id!);
 
     if (!result) throw new AppError(HttpCode.NotFound, Messages.UserNotFound);
 
