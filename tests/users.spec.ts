@@ -8,14 +8,14 @@ import { Endpoints, HttpCode, Messages } from '../src/app/enums';
 const server = app.server;
 const userEndpoint = Endpoints.users;
 
-let expectedUser: User = {
-  id: '',
-  username: 'Leo',
-  age: 30,
-  hobbies: ['js', 'ts'],
-};
+describe('1. Test CRUD operations - successfully', () => {
+  let expectedUser: User = {
+    id: '',
+    username: 'Leo',
+    age: 30,
+    hobbies: ['js', 'ts'],
+  };
 
-describe('Test CRUD operations - successfully', () => {
   it('Should get empty array on start', async () => {
     const { body: users, statusCode } = await request(server).get(userEndpoint);
 
@@ -96,5 +96,52 @@ describe('Test CRUD operations - successfully', () => {
 
     expect(statusCode).toBe(HttpCode.Ok);
     expect(users).toHaveLength(0);
+  });
+});
+
+describe('2. Test CRUD operations - not found', () => {
+  const putBody: Omit<User, 'id'> = {
+    username: 'Lea',
+    age: 33,
+    hobbies: ['sql'],
+  };
+
+  const id = uuid.v4();
+
+  it('Should return error message if endpoint is empty', async () => {
+    const { body, statusCode } = await request(server).get('');
+
+    expect(statusCode).toBe(HttpCode.NotFound);
+    expect(body).toStrictEqual({ message: Messages.RouteNotFound });
+  });
+
+  it('Should return error message if user endpoint is wrong', async () => {
+    const { body, statusCode } = await request(server).get(`${userEndpoint}/id/smthg`);
+
+    expect(statusCode).toBe(HttpCode.NotFound);
+    expect(body).toStrictEqual({ message: Messages.RouteNotFound });
+  });
+
+  it('Should return error message if user not found', async () => {
+    const { body, statusCode } = await request(server).get(`${userEndpoint}/${id}`);
+
+    expect(statusCode).toBe(HttpCode.NotFound);
+    expect(body).toStrictEqual({ message: Messages.UserNotFound });
+  });
+
+  it('Should return error message if user not found on update', async () => {
+    const { body, statusCode } = await request(server)
+      .put(`${userEndpoint}/${id}`)
+      .send(putBody);
+
+    expect(statusCode).toBe(HttpCode.NotFound);
+    expect(body).toStrictEqual({ message: Messages.UserNotFound });
+  });
+
+  it('Should return error message if user not found on delete', async () => {
+    const { body, statusCode } = await request(server).delete(`${userEndpoint}/${id}`);
+
+    expect(statusCode).toBe(HttpCode.NotFound);
+    expect(body).toStrictEqual({ message: Messages.UserNotFound });
   });
 });

@@ -90,6 +90,9 @@ export class UserController {
 
     if (resultValidateBody.body) {
       const result = this.userService.update(id!, resultValidateBody.body);
+
+      if (!result) throw new AppError(HttpCode.NotFound, Messages.UserNotFound);
+
       this.sendResponse(HttpCode.Ok, response, result);
     }
   }
