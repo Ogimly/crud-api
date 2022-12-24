@@ -67,7 +67,7 @@ export class UserController {
 
     if (resultValidate.body) {
       const result = this.userService.create(resultValidate.body);
-      this.sendResponse(HttpCode.Ok, response, result);
+      this.sendResponse(HttpCode.Created, response, result);
     }
   }
 

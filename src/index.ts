@@ -9,6 +9,6 @@ const userController = new UserController(userService);
 
 const router = new Router(userController);
 
-const app = new App(router);
+export const app = new App(router);
 
 app.start();
