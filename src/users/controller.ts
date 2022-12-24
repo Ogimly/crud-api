@@ -44,7 +44,6 @@ export class UserController {
         throw new AppError(HttpCode.BadRequest, resultValidate.error);
 
       const user = this.userService.getById(id);
-      console.log(user);
 
       if (!user) throw new AppError(HttpCode.NotFound, Messages.UserNotFound);
 
@@ -74,7 +73,18 @@ export class UserController {
 
   private PUTHandler(request: IncomingMessage, response: ServerResponse): void {}
 
-  private DELETEHandler(id: string | undefined, response: ServerResponse): void {}
+  private DELETEHandler(id: string | undefined, response: ServerResponse): void {
+    const resultValidate = this.userService.validateId(id);
+
+    if (!resultValidate.validate)
+      throw new AppError(HttpCode.BadRequest, resultValidate.error);
+
+    const result = this.userService.deleteById(id!);
+
+    if (!result) throw new AppError(HttpCode.NotFound, Messages.UserNotFound);
+
+    this.sendResponse(HttpCode.NoContent, response);
+  }
 
   private getBody(request: IncomingMessage): Promise<Partial<User>> {
     return new Promise((resolve, reject) => {
@@ -99,7 +109,11 @@ export class UserController {
     });
   }
 
-  private sendResponse(code: number, response: ServerResponse, result: unknown): void {
+  private sendResponse(
+    code: number,
+    response: ServerResponse,
+    result: unknown = ''
+  ): void {
     response.writeHead(code, CONTENT_TYPE_JSON);
     response.end(JSON.stringify(result));
   }

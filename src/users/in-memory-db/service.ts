@@ -22,7 +22,17 @@ export class UserService {
     return newUser;
   }
 
-  public validateId(id: string): ResultValidate {
+  public deleteById(userId: string): boolean {
+    const index = this.users.findIndex(({ id }) => id === userId);
+
+    if (index === -1) return false;
+
+    this.users.splice(index, 1);
+
+    return true;
+  }
+
+  public validateId(id: string | undefined): ResultValidate {
     if (!id) return { validate: false, error: Messages.IdEmpty };
     return { validate: uuid.validate(id), error: Messages.IdInvalid };
   }
