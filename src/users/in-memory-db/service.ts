@@ -61,7 +61,7 @@ export class UserService {
       errors.push(Messages.UsernameEmpty);
     }
 
-    if (!body.age) {
+    if (!body.age && body.age !== 0) {
       validate = false;
       errors.push(Messages.AgeEmpty);
     } else if (isNaN(+body.age)) {
@@ -76,6 +76,11 @@ export class UserService {
     if (!Array.isArray(body.hobbies)) {
       validate = false;
       errors.push(Messages.HobbiesNotArray);
+    } else {
+      if (!body.hobbies?.every((hobby) => typeof hobby === 'string')) {
+        validate = false;
+        errors.push(Messages.HobbiesNotStringArray);
+      }
     }
 
     if (!validate) return { validate, error: errors.join(', ') };
@@ -83,9 +88,8 @@ export class UserService {
     const validatedBody: Omit<User, 'id'> = {
       username: body.username!.toString(),
       age: +body.age!,
-      hobbies: body.hobbies!.map((hobby) => hobby.toString()),
+      hobbies: body.hobbies!,
     };
-
     return { validate, error: '', body: validatedBody };
   }
 }

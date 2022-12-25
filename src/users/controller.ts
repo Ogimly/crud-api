@@ -22,6 +22,8 @@ export class UserController {
       if (method === HttpMethods.GET) {
         this.GETHandler(id, response);
       } else if (method === HttpMethods.POST) {
+        if (id) throw new AppError(HttpCode.BadRequest, Messages.RouteInvalid);
+
         await this.POSTHandler(request, response);
       } else if (method === HttpMethods.PUT) {
         await this.PUTHandler(id, request, response);

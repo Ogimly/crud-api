@@ -136,6 +136,14 @@ describe('2. Test CRUD operations - not found', () => {
     expect(body).toStrictEqual({ message: Messages.RouteNotFound });
   });
 
+  it('Should return an error message if the endpoint is not existing', async () => {
+    const { body, statusCode, header } = await request(server).get('/some-non/existing');
+
+    expect(statusCode).toBe(HttpCode.NotFound);
+    expect(header[headerContentType]).toEqual(applicationJSON);
+    expect(body).toStrictEqual({ message: Messages.RouteNotFound });
+  });
+
   it('Should return an error message if the user endpoint is invalid', async () => {
     const { body, statusCode, header } = await request(server).get(
       `${userEndpoint}/id/smthg`
@@ -188,6 +196,16 @@ describe('3. Test CRUD operations - bad request', () => {
     expect(body).toStrictEqual({ message: Messages.UnknownMethod });
   });
 
+  it('Should return an error message if the POST method with id', async () => {
+    const { body, statusCode, header } = await request(server).post(
+      `${userEndpoint}/${wrongId}`
+    );
+
+    expect(statusCode).toBe(HttpCode.BadRequest);
+    expect(header[headerContentType]).toEqual(applicationJSON);
+    expect(body).toStrictEqual({ message: Messages.RouteInvalid });
+  });
+
   it('Should return an error message if the id is not uuid when getting the user', async () => {
     const { body, statusCode, header } = await request(server).get(
       `${userEndpoint}/${wrongId}`
@@ -196,6 +214,153 @@ describe('3. Test CRUD operations - bad request', () => {
     expect(statusCode).toBe(HttpCode.BadRequest);
     expect(header[headerContentType]).toEqual(applicationJSON);
     expect(body).toStrictEqual({ message: Messages.IdInvalid });
+  });
+
+  describe('Creating the user', () => {
+    const postBody: Omit<User, 'id'> = {
+      username: 'Leo',
+      age: 30,
+      hobbies: ['js', 'ts'],
+    };
+
+    it('Should return an error message if the the body is empty', async () => {
+      const wrongBody = JSON.stringify('');
+
+      const { body, statusCode, header } = await request(server)
+        .post(userEndpoint)
+        .send(wrongBody);
+
+      expect(statusCode).toBe(HttpCode.BadRequest);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body).toStrictEqual({
+        message: [
+          Messages.BodyEmpty,
+          Messages.UsernameEmpty,
+          Messages.AgeEmpty,
+          Messages.HobbiesEmpty,
+          Messages.HobbiesNotArray,
+        ].join(', '),
+      });
+    });
+
+    it('Should return an error message if the the username is empty', async () => {
+      const wrongBody: any = { ...postBody };
+      wrongBody.username = undefined;
+
+      const { body, statusCode, header } = await request(server)
+        .post(userEndpoint)
+        .send(wrongBody);
+
+      expect(statusCode).toBe(HttpCode.BadRequest);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body).toStrictEqual({ message: Messages.UsernameEmpty });
+    });
+
+    it('Should return an error message if the the age is empty', async () => {
+      const wrongBody: any = { ...postBody };
+      wrongBody.age = undefined;
+
+      const { body, statusCode, header } = await request(server)
+        .post(userEndpoint)
+        .send(wrongBody);
+
+      expect(statusCode).toBe(HttpCode.BadRequest);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body).toStrictEqual({ message: Messages.AgeEmpty });
+    });
+
+    it('Should return an error message if the the age is not number', async () => {
+      const wrongBody: any = { ...postBody };
+      wrongBody.age = 'age';
+
+      const { body, statusCode, header } = await request(server)
+        .post(userEndpoint)
+        .send(wrongBody);
+
+      expect(statusCode).toBe(HttpCode.BadRequest);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body).toStrictEqual({ message: Messages.AgeNotNumber });
+    });
+
+    it('Should create the user if the age is 0', async () => {
+      const wrongBody: any = { ...postBody };
+      wrongBody.age = 0;
+
+      const { body, statusCode, header } = await request(server)
+        .post(userEndpoint)
+        .send(wrongBody);
+
+      expect(statusCode).toBe(HttpCode.Created);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body.age).toStrictEqual(wrongBody.age);
+    });
+
+    it('Should create new user if the age is as number', async () => {
+      const wrongBody: any = { ...postBody };
+      wrongBody.age = '44';
+
+      const { body, statusCode, header } = await request(server)
+        .post(userEndpoint)
+        .send(wrongBody);
+
+      expect(statusCode).toBe(HttpCode.Created);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body.age).toStrictEqual(+wrongBody.age);
+    });
+
+    it('Should return an error message if the the hobbies is empty', async () => {
+      const wrongBody: any = { ...postBody };
+      wrongBody.hobbies = undefined;
+
+      const { body, statusCode, header } = await request(server)
+        .post(userEndpoint)
+        .send(wrongBody);
+
+      expect(statusCode).toBe(HttpCode.BadRequest);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body).toStrictEqual({
+        message: [Messages.HobbiesEmpty, Messages.HobbiesNotArray].join(', '),
+      });
+    });
+
+    it('Should return an error message if the the hobbies is not array', async () => {
+      const wrongBody: any = { ...postBody };
+      wrongBody.hobbies = 'hobbies';
+
+      const { body, statusCode, header } = await request(server)
+        .post(userEndpoint)
+        .send(wrongBody);
+
+      expect(statusCode).toBe(HttpCode.BadRequest);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body).toStrictEqual({ message: Messages.HobbiesNotArray });
+    });
+
+    it('Should return an error message if the hobbies is not string array', async () => {
+      const wrongBody: any = { ...postBody };
+      wrongBody.hobbies = [22, 'true'];
+
+      const { body, statusCode, header } = await request(server)
+        .post(userEndpoint)
+        .send(wrongBody);
+
+      expect(statusCode).toBe(HttpCode.BadRequest);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body).toStrictEqual({ message: Messages.HobbiesNotStringArray });
+    });
+
+    it('Should create the user if the hobbies is a string array', async () => {
+      const wrongBody: any = { ...postBody };
+      wrongBody.hobbies = ['22', 'true'];
+
+      const { body, statusCode, header } = await request(server)
+        .post(userEndpoint)
+        .send(wrongBody);
+
+      expect(statusCode).toBe(HttpCode.Created);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body.hobbies).toStrictEqual(wrongBody.hobbies);
+    });
   });
 
   describe('Updating the user', () => {
@@ -290,6 +455,19 @@ describe('3. Test CRUD operations - bad request', () => {
       expect(body).toStrictEqual({ message: Messages.AgeEmpty });
     });
 
+    it('Should update the user if the age is 0', async () => {
+      const wrongBody: any = { ...putBody };
+      wrongBody.age = 0;
+
+      const { body, statusCode, header } = await request(server)
+        .put(`${userEndpoint}/${id}`)
+        .send(wrongBody);
+
+      expect(statusCode).toBe(HttpCode.Ok);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body.age).toStrictEqual(wrongBody.age);
+    });
+
     it('Should return an error message if the the age is not number', async () => {
       const wrongBody: any = { ...putBody };
       wrongBody.age = 'age';
@@ -344,9 +522,22 @@ describe('3. Test CRUD operations - bad request', () => {
       expect(body).toStrictEqual({ message: Messages.HobbiesNotArray });
     });
 
-    it('Should update the user if the hobbies is as string array', async () => {
+    it('Should return an error message if the hobbies is not string array', async () => {
       const wrongBody: any = { ...putBody };
-      wrongBody.hobbies = [22, true];
+      wrongBody.hobbies = [22, 'true'];
+
+      const { body, statusCode, header } = await request(server)
+        .put(`${userEndpoint}/${id}`)
+        .send(wrongBody);
+
+      expect(statusCode).toBe(HttpCode.BadRequest);
+      expect(header[headerContentType]).toEqual(applicationJSON);
+      expect(body).toStrictEqual({ message: Messages.HobbiesNotStringArray });
+    });
+
+    it('Should update the user if the hobbies is a string array', async () => {
+      const wrongBody: any = { ...putBody };
+      wrongBody.hobbies = ['22', 'true'];
 
       const { body, statusCode, header } = await request(server)
         .put(`${userEndpoint}/${id}`)
@@ -354,132 +545,7 @@ describe('3. Test CRUD operations - bad request', () => {
 
       expect(statusCode).toBe(HttpCode.Ok);
       expect(header[headerContentType]).toEqual(applicationJSON);
-      expect(body.hobbies).toStrictEqual(
-        wrongBody.hobbies.map((hobby: any) => hobby.toString())
-      );
-    });
-  });
-
-  describe('Creating the user', () => {
-    const postBody: Omit<User, 'id'> = {
-      username: 'Leo',
-      age: 30,
-      hobbies: ['js', 'ts'],
-    };
-
-    it('Should return an error message if the the body is empty', async () => {
-      const wrongBody = JSON.stringify('');
-
-      const { body, statusCode, header } = await request(server)
-        .post(userEndpoint)
-        .send(wrongBody);
-
-      expect(statusCode).toBe(HttpCode.BadRequest);
-      expect(header[headerContentType]).toEqual(applicationJSON);
-      expect(body).toStrictEqual({
-        message: [
-          Messages.BodyEmpty,
-          Messages.UsernameEmpty,
-          Messages.AgeEmpty,
-          Messages.HobbiesEmpty,
-          Messages.HobbiesNotArray,
-        ].join(', '),
-      });
-    });
-
-    it('Should return an error message if the the username is empty', async () => {
-      const wrongBody: any = { ...postBody };
-      wrongBody.username = undefined;
-
-      const { body, statusCode, header } = await request(server)
-        .post(userEndpoint)
-        .send(wrongBody);
-
-      expect(statusCode).toBe(HttpCode.BadRequest);
-      expect(header[headerContentType]).toEqual(applicationJSON);
-      expect(body).toStrictEqual({ message: Messages.UsernameEmpty });
-    });
-
-    it('Should return an error message if the the age is empty', async () => {
-      const wrongBody: any = { ...postBody };
-      wrongBody.age = undefined;
-
-      const { body, statusCode, header } = await request(server)
-        .post(userEndpoint)
-        .send(wrongBody);
-
-      expect(statusCode).toBe(HttpCode.BadRequest);
-      expect(header[headerContentType]).toEqual(applicationJSON);
-      expect(body).toStrictEqual({ message: Messages.AgeEmpty });
-    });
-
-    it('Should return an error message if the the age is not number', async () => {
-      const wrongBody: any = { ...postBody };
-      wrongBody.age = 'age';
-
-      const { body, statusCode, header } = await request(server)
-        .post(userEndpoint)
-        .send(wrongBody);
-
-      expect(statusCode).toBe(HttpCode.BadRequest);
-      expect(header[headerContentType]).toEqual(applicationJSON);
-      expect(body).toStrictEqual({ message: Messages.AgeNotNumber });
-    });
-
-    it('Should create new user if the age is as number', async () => {
-      const wrongBody: any = { ...postBody };
-      wrongBody.age = '44';
-
-      const { body, statusCode, header } = await request(server)
-        .post(userEndpoint)
-        .send(wrongBody);
-
-      expect(statusCode).toBe(HttpCode.Created);
-      expect(header[headerContentType]).toEqual(applicationJSON);
-      expect(body.age).toStrictEqual(+wrongBody.age);
-    });
-
-    it('Should return an error message if the the hobbies is empty', async () => {
-      const wrongBody: any = { ...postBody };
-      wrongBody.hobbies = undefined;
-
-      const { body, statusCode, header } = await request(server)
-        .post(userEndpoint)
-        .send(wrongBody);
-
-      expect(statusCode).toBe(HttpCode.BadRequest);
-      expect(header[headerContentType]).toEqual(applicationJSON);
-      expect(body).toStrictEqual({
-        message: [Messages.HobbiesEmpty, Messages.HobbiesNotArray].join(', '),
-      });
-    });
-
-    it('Should return an error message if the the hobbies is not array', async () => {
-      const wrongBody: any = { ...postBody };
-      wrongBody.hobbies = 'hobbies';
-
-      const { body, statusCode, header } = await request(server)
-        .post(userEndpoint)
-        .send(wrongBody);
-
-      expect(statusCode).toBe(HttpCode.BadRequest);
-      expect(header[headerContentType]).toEqual(applicationJSON);
-      expect(body).toStrictEqual({ message: Messages.HobbiesNotArray });
-    });
-
-    it('Should create new user if the hobbies is as string array', async () => {
-      const wrongBody: any = { ...postBody };
-      wrongBody.hobbies = [22, true];
-
-      const { body, statusCode, header } = await request(server)
-        .post(userEndpoint)
-        .send(wrongBody);
-
-      expect(statusCode).toBe(HttpCode.Created);
-      expect(header[headerContentType]).toEqual(applicationJSON);
-      expect(body.hobbies).toStrictEqual(
-        wrongBody.hobbies.map((hobby: any) => hobby.toString())
-      );
+      expect(body.hobbies).toStrictEqual(wrongBody.hobbies);
     });
   });
 

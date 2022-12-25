@@ -19,6 +19,7 @@ export const enum Messages {
   RouteNotFound = 'Route not found',
   UserNotFound = 'User not found',
   UnknownMethod = 'Unknown method',
+  RouteInvalid = 'Route is invalid',
   JSONInvalid = 'JSON is invalid',
   IdEmpty = 'ID is empty',
   IdInvalid = 'ID is invalid',
@@ -29,6 +30,7 @@ export const enum Messages {
   AgeNotNumber = 'Age is not number',
   HobbiesEmpty = 'Hobbies is not define',
   HobbiesNotArray = 'Hobbies is not array',
+  HobbiesNotStringArray = 'Hobbies contains not string elements',
 }
 
 export const enum Endpoints {

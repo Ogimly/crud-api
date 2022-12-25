@@ -7,7 +7,7 @@ export const errorHandler = (error: unknown, response: ServerResponse): void => 
   if (error instanceof AppError) {
     error.sentError(response);
   } else {
-    // console.log(error);
+    console.log(error);
     new AppError(HttpCode.InternalServerError, Messages.InternalServerError).sentError(
       response
     );
