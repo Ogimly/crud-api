@@ -1,8 +1,12 @@
 {
   "name": "node.js-crud-api",
   "scripts": {
-    "start:dev": "nodemon",
+    "start:dev": "cross-env CLUSTER_MODE=single nodemon",
+    "start:multi": "cross-env CLUSTER_MODE=multi nodemon",
+    "start:inspect": "cross-env CLUSTER_MODE=single nodemon --exec \"node --require ts-node/register --inspect-brk src/index.ts\"",
+    "start:inspect:multi": "cross-env CLUSTER_MODE=multi nodemon --exec \"node --require ts-node/register --inspect-brk src/index.ts\"",
     "start:prod": "webpack && node ./dist/index.js",
+    "start:prod:multi": "webpack && cross-env CLUSTER_MODE=multi node ./dist/index.js",
     "lint": "eslint src",
     "test": "jest"
   },

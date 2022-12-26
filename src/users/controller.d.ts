@@ -1,4 +1,4 @@
-export { User } from './entity';
+import { User } from './entity';
 
 export type ResultValidate = {
   validate: boolean;

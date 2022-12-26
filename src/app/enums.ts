@@ -36,3 +36,14 @@ export const enum Messages {
 export const enum Endpoints {
   users = '/api/users',
 }
+
+export const enum ClusterMode {
+  none = 'none',
+  single = 'single',
+  multi = 'multi',
+}
+
+export const enum ClusterCommands {
+  portRequest = 'portRequest',
+  portResponse = 'portResponse',
+}
