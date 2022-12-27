@@ -1,14 +1,8 @@
 import { App } from './app/app';
-import { UserService } from './users/in-memory-db/service';
-import { Router } from './app/router';
-import { UserController } from './users/controller';
+import { DEFAULT_CLUSTER_MODE } from './app/const';
 
-const userService = new UserService();
+const clusterMode = process.env.CLUSTER_MODE ?? DEFAULT_CLUSTER_MODE;
 
-const userController = new UserController(userService);
-
-const router = new Router(userController);
-
-export const app = new App(router);
+export const app = new App(clusterMode);
 
 app.start();

@@ -92,4 +92,8 @@ export class UserService {
     };
     return { validate, error: '', body: validatedBody };
   }
+
+  setUsers(users: User[]): void {
+    this.users = [...users];
+  }
 }

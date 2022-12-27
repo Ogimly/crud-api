@@ -1,16 +1,61 @@
+import cluster from 'cluster';
 import { IncomingMessage, ServerResponse } from 'http';
 
 import { CONTENT_TYPE_JSON } from '../app/const';
-import { HttpCode, HttpMethods, Messages } from '../app/enums';
+import {
+  ClusterCommands,
+  ClusterMode,
+  HttpCode,
+  HttpMethods,
+  Messages,
+} from '../app/enums';
 import { AppError } from '../app/error-handler/app-error';
 import { errorHandler } from '../app/error-handler/error-handler';
 import { User } from './entity';
 import { UserService } from './in-memory-db/service';
+import { ClusterMessage } from '../app/app.d';
 
 export class UserController {
-  constructor(private userService: UserService) {}
+  constructor(private clusterMode: string, private userService: UserService) {}
 
   public async handler(
+    method: string | undefined,
+    id: string | undefined,
+    request: IncomingMessage,
+    response: ServerResponse
+  ): Promise<void> {
+    if (this.clusterMode === ClusterMode.multi && !cluster.isPrimary) {
+      if (process.send) {
+        const usersRequest: ClusterMessage = { cmd: ClusterCommands.usersRequest };
+        process.send(usersRequest);
+      }
+
+      process.on('message', async (message: ClusterMessage) => {
+        const { cmd, data } = message;
+
+        if (cmd === ClusterCommands.usersResponse) {
+          console.log(`Worker ${process.pid}: users sent from server`);
+
+          const users = data?.users;
+          if (users) this.userService.setUsers(users);
+
+          await this.methodsHandler(method, id, request, response);
+
+          if (process.send) {
+            const usersResponse: ClusterMessage = {
+              cmd: ClusterCommands.usersResponse,
+              data: { users: [...this.userService.getAll()] },
+            };
+            process.send(usersResponse);
+          }
+        }
+      });
+    } else {
+      this.methodsHandler(method, id, request, response);
+    }
+  }
+
+  public async methodsHandler(
     method: string | undefined,
     id: string | undefined,
     request: IncomingMessage,
