@@ -13,8 +13,6 @@ import { ClusterMessage, ClusterWorker } from './app.d';
 export class App {
   private port: number = +(process.env.PORT ?? DEFAULT_PORT);
 
-  private currentPort = this.port;
-
   private baseUrl = process.env.BASE_URL ?? DEFAULT_BASE_URL;
 
   private router: Router;
@@ -27,7 +25,7 @@ export class App {
 
   private workers: ClusterWorker[] = [];
 
-  private isPrimary = false;
+  private isBalancer = false;
 
   get server(): http.Server<typeof http.IncomingMessage, typeof http.ServerResponse> {
     return this._server;
@@ -55,87 +53,67 @@ export class App {
 
       if (cluster.isPrimary) {
         // Primary process
-
         console.log(`Cluster ${process.pid} is running, wait for workers...`);
 
-        this.workers = this.createWorkers();
+        const numWorkers = os.cpus().length;
+
+        for (let i = 0; i < numWorkers; i++) {
+          this.createWorker();
+        }
 
         cluster.on('exit', this.clusterOnExit.bind(this));
-
         cluster.on('message', this.clusterOnMessage.bind(this));
       } else {
         // Worker process
-
-        process.on('message', this.workerOnMessage.bind(this));
-
-        if (process.send) {
-          const portRequest: ClusterMessage = { cmd: ClusterCommands.portRequest };
-          process.send(portRequest);
-        }
-
-        setTimeout(() => process.exit(), Math.random() * 10000);
+        this.startWorker();
       }
-    } else {
-      this._server.close();
     }
   }
 
-  private createWorkers(): ClusterWorker[] {
-    return os.cpus().map((): ClusterWorker => {
-      const worker = cluster.fork();
+  private createWorker(): void {
+    const noBalancer = this.workers.every(({ isBalancer }) => !isBalancer);
+    const workerPort = noBalancer
+      ? this.port
+      : Math.max(this.port, ...this.workers.map(({ port }) => port)) + 1;
 
-      console.log(`Worker forked: ${worker.process.pid}`);
+    const newWorker = cluster.fork({ workerPort, isBalancer: noBalancer });
 
-      return {
-        worker,
-        isPrimary: false,
-        id: worker.process.pid ?? 0,
-        port: 0,
-      };
+    const id = +(newWorker.process.pid ?? 0);
+
+    this.workers.push({ port: workerPort, isBalancer: noBalancer, id });
+  }
+
+  startWorker(): void {
+    this.port = +(process.env.workerPort ?? 0);
+    this.isBalancer = process.env.isBalancer === 'true';
+
+    this._server.listen(this.port, () => {
+      console.log(
+        `Worker${this.isBalancer ? ' balancer' : ''} ${process.pid}: server running at ${
+          this.baseUrl
+        }:${this.port}/`
+      );
     });
+
+    // setTimeout(() => process.exit(), Math.random() * 10000);
   }
 
   private clusterOnExit(worker: Worker, code: number): void {
     console.log(`Cluster: worker ${worker.process.pid} died, code ${code}`);
 
-    const found = this.workers.find(({ id }) => id === worker.process.pid);
-    if (found) {
-      found.isPrimary = false;
-      found.port = 0;
+    const foundIndex = this.workers.findIndex(({ id }) => id === worker.process.pid);
 
-      const newWorker = cluster.fork();
+    if (foundIndex !== -1) {
+      this.workers.splice(foundIndex, 1);
 
-      found.worker = newWorker;
-      found.id = newWorker.process.pid ?? 0;
+      this.createWorker();
     }
   }
 
   private clusterOnMessage(worker: Worker, message: ClusterMessage): void {
     const { cmd, data } = message;
 
-    if (cmd === ClusterCommands.portRequest) {
-      console.log(
-        `Cluster ${process.pid}: port request from worker ${worker.process.pid}`
-      );
-
-      const noPrimary = this.workers.every(({ isPrimary }) => !isPrimary);
-      const port = noPrimary ? this.port : this.currentPort;
-
-      const portResponse: ClusterMessage = {
-        cmd: ClusterCommands.portResponse,
-        data: { port, isPrimary: noPrimary },
-      };
-
-      const found = this.workers.find(({ id }) => id === worker.process.pid);
-      if (found) {
-        found.port = port;
-        found.isPrimary = noPrimary;
-      }
-
-      this.currentPort += 1;
-
-      worker.send(portResponse);
-    } else if (cmd === ClusterCommands.usersRequest) {
+    if (cmd === ClusterCommands.usersRequest) {
       console.log(
         `Cluster ${process.pid}: users request from worker ${worker.process.pid}`
       );
@@ -152,25 +130,6 @@ export class App {
       const users = data?.users;
 
       if (users) this.userService.setUsers(users);
-    }
-  }
-
-  private workerOnMessage(message: ClusterMessage): void {
-    const { cmd } = message;
-
-    if (cmd === ClusterCommands.portResponse) {
-      console.log(`Worker ${process.pid}: port sent from server`);
-
-      this.port = message.data?.port ?? this.port;
-      this.isPrimary = message.data?.isPrimary ?? false;
-
-      this._server.listen(this.port, () => {
-        console.log(
-          `Worker ${this.isPrimary ? 'primary ' : ''}${process.pid}: server running at ${
-            this.baseUrl
-          }:${this.port}/`
-        );
-      });
     }
   }
 }
