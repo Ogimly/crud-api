@@ -44,8 +44,8 @@ export const enum ClusterMode {
 }
 
 export const enum ClusterCommands {
-  portRequest = 'portRequest',
-  portResponse = 'portResponse',
   usersRequest = 'usersRequest',
   usersResponse = 'usersResponse',
+  workersRequest = 'workersResponse',
+  workersResponse = 'workersResponse',
 }

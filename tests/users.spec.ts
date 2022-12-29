@@ -11,7 +11,7 @@ const headerContentType = 'content-type';
 const applicationJSON = 'application/json';
 
 afterAll(() => {
-  server.close();
+  if (server) server.close();
 });
 
 describe('1. Test CRUD operations - successfully', () => {

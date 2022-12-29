@@ -16,7 +16,36 @@ import { UserService } from './in-memory-db/service';
 import { ClusterMessage } from '../app/app.d';
 
 export class UserController {
-  constructor(private clusterMode: string, private userService: UserService) {}
+  method?: string;
+
+  id?: string;
+
+  request?: IncomingMessage;
+
+  response?: ServerResponse;
+
+  constructor(private clusterMode: string, private userService: UserService) {
+    process.on('message', async (message: ClusterMessage) => {
+      const { cmd, data } = message;
+
+      if (cmd === ClusterCommands.usersResponse) {
+        // console.log(`Worker ${process.pid}: users sent from server`);
+
+        const users = data?.users;
+        if (users) this.userService.setUsers(users);
+
+        await this.methodsHandler();
+
+        if (process.send) {
+          const usersResponse: ClusterMessage = {
+            cmd: ClusterCommands.usersResponse,
+            data: { users: [...this.userService.getAll()] },
+          };
+          process.send(usersResponse);
+        }
+      }
+    });
+  }
 
   public async handler(
     method: string | undefined,
@@ -24,61 +53,42 @@ export class UserController {
     request: IncomingMessage,
     response: ServerResponse
   ): Promise<void> {
+    this.method = method;
+    this.id = id;
+    this.request = request;
+    this.response = response;
+
     if (this.clusterMode === ClusterMode.multi && !cluster.isPrimary) {
       if (process.send) {
         const usersRequest: ClusterMessage = { cmd: ClusterCommands.usersRequest };
         process.send(usersRequest);
       }
-
-      process.on('message', async (message: ClusterMessage) => {
-        const { cmd, data } = message;
-
-        if (cmd === ClusterCommands.usersResponse) {
-          console.log(`Worker ${process.pid}: users sent from server`);
-
-          const users = data?.users;
-          if (users) this.userService.setUsers(users);
-
-          await this.methodsHandler(method, id, request, response);
-
-          if (process.send) {
-            const usersResponse: ClusterMessage = {
-              cmd: ClusterCommands.usersResponse,
-              data: { users: [...this.userService.getAll()] },
-            };
-            process.send(usersResponse);
-          }
-        }
-      });
     } else {
-      this.methodsHandler(method, id, request, response);
+      this.methodsHandler();
     }
   }
 
-  public async methodsHandler(
-    method: string | undefined,
-    id: string | undefined,
-    request: IncomingMessage,
-    response: ServerResponse
-  ): Promise<void> {
+  private async methodsHandler(): Promise<void> {
+    if (!this.response) return;
     try {
-      if (!method) throw new AppError(HttpCode.BadRequest, Messages.UnknownMethod);
+      if (!this.method || !this.request)
+        throw new AppError(HttpCode.BadRequest, Messages.UnknownMethod);
 
-      if (method === HttpMethods.GET) {
-        this.GETHandler(id, response);
-      } else if (method === HttpMethods.POST) {
-        if (id) throw new AppError(HttpCode.BadRequest, Messages.RouteInvalid);
+      if (this.method === HttpMethods.GET) {
+        this.GETHandler(this.id, this.response);
+      } else if (this.method === HttpMethods.POST) {
+        if (this.id) throw new AppError(HttpCode.BadRequest, Messages.RouteInvalid);
 
-        await this.POSTHandler(request, response);
-      } else if (method === HttpMethods.PUT) {
-        await this.PUTHandler(id, request, response);
-      } else if (method === HttpMethods.DELETE) {
-        this.DELETEHandler(id, response);
+        await this.POSTHandler(this.request, this.response);
+      } else if (this.method === HttpMethods.PUT) {
+        await this.PUTHandler(this.id, this.request, this.response);
+      } else if (this.method === HttpMethods.DELETE) {
+        this.DELETEHandler(this.id, this.response);
       } else {
         throw new AppError(HttpCode.BadRequest, Messages.UnknownMethod);
       }
     } catch (error) {
-      errorHandler(error, response);
+      errorHandler(error, this.response);
     }
   }
 

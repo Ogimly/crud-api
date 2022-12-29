@@ -6,48 +6,59 @@ import os from 'os';
 import { Router } from './router';
 import { UserController } from '../users/controller';
 import { UserService } from '../users/in-memory-db/service';
-import { DEFAULT_BASE_URL, DEFAULT_PORT } from './const';
+import { DEFAULT_BASE_URL, DEFAULT_CLUSTER_MODE, DEFAULT_PORT } from './const';
 import { ClusterCommands, ClusterMode } from './enums';
 import { ClusterMessage, ClusterWorker } from './app.d';
+import { Balancer } from './balancer';
 
 export class App {
   private port: number = +(process.env.PORT ?? DEFAULT_PORT);
 
   private baseUrl = process.env.BASE_URL ?? DEFAULT_BASE_URL;
 
+  private clusterMode = process.env.CLUSTER_MODE ?? DEFAULT_CLUSTER_MODE;
+
   private router: Router;
+
+  private balancer?: Balancer;
 
   private userController: UserController;
 
   private userService: UserService;
 
-  private _server;
+  private _server:
+    | http.Server<typeof http.IncomingMessage, typeof http.ServerResponse>
+    | undefined;
 
   private workers: ClusterWorker[] = [];
 
   private isBalancer = false;
 
-  get server(): http.Server<typeof http.IncomingMessage, typeof http.ServerResponse> {
+  get server():
+    | http.Server<typeof http.IncomingMessage, typeof http.ServerResponse>
+    | undefined {
     return this._server;
   }
 
-  constructor(private clusterMode: string) {
+  constructor() {
     this.userService = new UserService();
 
-    this.userController = new UserController(clusterMode, this.userService);
+    this.userController = new UserController(this.clusterMode, this.userService);
 
     this.router = new Router(this.userController);
 
-    this._server = http.createServer(this.router.handler.bind(this.router));
+    if (this.clusterMode === ClusterMode.single)
+      this._server = http.createServer(this.router.handler.bind(this.router));
   }
 
   public start(): void {
     if (this.clusterMode === ClusterMode.single) {
       // single server
 
-      this._server.listen(this.port, () => {
-        console.log(`Server running at ${this.baseUrl}:${this.port}/`);
-      });
+      if (this._server)
+        this._server.listen(this.port, () => {
+          console.log(`Server running at ${this.baseUrl}:${this.port}/`);
+        });
     } else if (this.clusterMode === ClusterMode.multi) {
       // start cluster
 
@@ -66,6 +77,8 @@ export class App {
       } else {
         // Worker process
         this.startWorker();
+
+        process.on('message', this.workerOnMessage.bind(this));
       }
     }
   }
@@ -83,19 +96,49 @@ export class App {
     this.workers.push({ port: workerPort, isBalancer: noBalancer, id });
   }
 
-  startWorker(): void {
+  private startWorker(): void {
     this.port = +(process.env.workerPort ?? 0);
     this.isBalancer = process.env.isBalancer === 'true';
 
-    this._server.listen(this.port, () => {
-      console.log(
-        `Worker${this.isBalancer ? ' balancer' : ''} ${process.pid}: server running at ${
-          this.baseUrl
-        }:${this.port}/`
-      );
-    });
+    if (this.isBalancer) {
+      this.balancerSendWorkersRequest();
+
+      this.balancer = new Balancer(this.baseUrl);
+
+      this._server = http.createServer(this.balancer.handler.bind(this.balancer));
+    } else {
+      this._server = http.createServer(this.router.handler.bind(this.router));
+    }
+
+    if (this._server)
+      this._server.listen(this.port, () => {
+        console.log(
+          `${this.isBalancer ? 'Balancer' : 'Worker'} ${process.pid}: server running at ${
+            this.baseUrl
+          }:${this.port}/`
+        );
+      });
 
     // setTimeout(() => process.exit(), Math.random() * 10000);
+  }
+
+  private workerOnMessage(message: ClusterMessage): void {
+    const { cmd, data } = message;
+
+    if (cmd === ClusterCommands.workersResponse) {
+      console.log(
+        `${this.isBalancer ? 'Balancer' : 'Worker'} ${
+          process.pid
+        }: workers sent from cluster`
+      );
+
+      const workers = data?.workers;
+
+      if (workers) {
+        this.workers = [...workers];
+        if (this.balancer) this.balancer.workers = workers;
+      }
+    }
   }
 
   private clusterOnExit(worker: Worker, code: number): void {
@@ -114,22 +157,48 @@ export class App {
     const { cmd, data } = message;
 
     if (cmd === ClusterCommands.usersRequest) {
-      console.log(
-        `Cluster ${process.pid}: users request from worker ${worker.process.pid}`
-      );
+      // console.log(
+      //   `Cluster ${process.pid}: users request from worker ${worker.process.pid}`
+      // );
 
-      const usersResponse: ClusterMessage = {
-        cmd: ClusterCommands.usersResponse,
-        data: { users: [...this.userService.getAll()] },
-      };
-
-      worker.send(usersResponse);
+      this.clusterSendUsers(worker);
     } else if (cmd === ClusterCommands.usersResponse) {
-      console.log(`Cluster ${process.pid}: users sent from worker ${worker.process.pid}`);
+      // console.log(`Cluster ${process.pid}: users sent from worker ${worker.process.pid}`);
 
       const users = data?.users;
 
       if (users) this.userService.setUsers(users);
+    } else if (cmd === ClusterCommands.workersRequest) {
+      console.log(
+        `Cluster ${process.pid}: workers request from balancer ${worker.process.pid}`
+      );
+
+      this.clusterSendWorkers(worker);
     }
+  }
+
+  private clusterSendUsers(worker: Worker): void {
+    const usersResponse: ClusterMessage = {
+      cmd: ClusterCommands.usersResponse,
+      data: { users: [...this.userService.getAll()] },
+    };
+
+    worker.send(usersResponse);
+  }
+
+  private balancerSendWorkersRequest(): void {
+    if (process.send) {
+      const workersRequest: ClusterMessage = { cmd: ClusterCommands.workersRequest };
+      process.send(workersRequest);
+    }
+  }
+
+  private clusterSendWorkers(balancer: Worker): void {
+    const workersResponse: ClusterMessage = {
+      cmd: ClusterCommands.workersResponse,
+      data: { workers: [...this.workers] },
+    };
+
+    balancer.send(workersResponse);
   }
 }

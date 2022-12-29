@@ -6,6 +6,7 @@ export type ClusterMessage = {
     port?: number;
     isBalancer?: boolean;
     users?: User[];
+    workers?: ClusterWorker[];
   };
 };
 
