@@ -81,6 +81,12 @@ export class App {
         process.on('message', this.workerOnMessage.bind(this));
       }
     }
+
+    process.on('exit', () => {
+      if (this._server) this._server.close();
+    });
+
+    process.on('SIGINT', () => process.exit());
   }
 
   private createWorker(): void {
