@@ -44,8 +44,21 @@ export const enum ClusterMode {
 }
 
 export const enum ClusterCommands {
-  usersRequest = 'usersRequest',
-  usersResponse = 'usersResponse',
   workersRequest = 'workersResponse',
   workersResponse = 'workersResponse',
+
+  getAllUsersRequest = 'getAllUsersRequest',
+  getAllUsersResponse = 'getAllUsersResponse',
+
+  getOneUserRequest = 'getOneUserRequest',
+  getOneUserResponse = 'getOneUserResponse',
+
+  createUserRequest = 'createUserRequest',
+  createUserResponse = 'createUserResponse',
+
+  updateUserRequest = 'updateUserRequest',
+  updateUserResponse = 'updateUserResponse',
+
+  deleteUserRequest = 'deleteUserRequest',
+  deleteUserResponse = 'deleteUserResponse',
 }

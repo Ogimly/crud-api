@@ -9,7 +9,7 @@ import { errorHandler } from './error-handler/error-handler';
 export class Balancer {
   private _workers: ClusterWorker[] = [];
 
-  private currentWorker = 0;
+  private currentWorker = -1;
 
   constructor(private baseUrl: string) {}
 

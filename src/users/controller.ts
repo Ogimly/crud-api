@@ -26,22 +26,39 @@ export class UserController {
 
   constructor(private clusterMode: string, private userService: UserService) {
     process.on('message', async (message: ClusterMessage) => {
+      if (!this.response) return;
+
       const { cmd, data } = message;
 
-      if (cmd === ClusterCommands.usersResponse) {
-        // console.log(`Worker ${process.pid}: users sent from server`);
-
+      if (cmd === ClusterCommands.getAllUsersResponse) {
         const users = data?.users;
-        if (users) this.userService.setUsers(users);
-
-        await this.methodsHandler();
-
-        if (process.send) {
-          const usersResponse: ClusterMessage = {
-            cmd: ClusterCommands.usersResponse,
-            data: { users: [...this.userService.getAll()] },
-          };
-          process.send(usersResponse);
+        this.sendResponse(HttpCode.Ok, this.response, users);
+      } else if (cmd === ClusterCommands.getOneUserResponse) {
+        const user = data?.user;
+        if (!user) {
+          new AppError(HttpCode.NotFound, Messages.UserNotFound).sentError(this.response);
+        } else {
+          this.sendResponse(HttpCode.Ok, this.response, user);
+        }
+      } else if (cmd === ClusterCommands.createUserResponse) {
+        const user = data?.user;
+        if (!user) {
+          new AppError(HttpCode.NotFound, Messages.UserNotFound).sentError(this.response);
+        } else {
+          this.sendResponse(HttpCode.Created, this.response, user);
+        }
+      } else if (cmd === ClusterCommands.updateUserResponse) {
+        const user = data?.user;
+        if (!user) {
+          new AppError(HttpCode.NotFound, Messages.UserNotFound).sentError(this.response);
+        } else {
+          this.sendResponse(HttpCode.Ok, this.response, user);
+        }
+      } else if (cmd === ClusterCommands.deleteUserResponse) {
+        if (!data?.ok) {
+          new AppError(HttpCode.NotFound, Messages.UserNotFound).sentError(this.response);
+        } else {
+          this.sendResponse(HttpCode.NoContent, this.response);
         }
       }
     });
@@ -58,32 +75,19 @@ export class UserController {
     this.request = request;
     this.response = response;
 
-    if (this.clusterMode === ClusterMode.multi && !cluster.isPrimary) {
-      if (process.send) {
-        const usersRequest: ClusterMessage = { cmd: ClusterCommands.usersRequest };
-        process.send(usersRequest);
-      }
-    } else {
-      this.methodsHandler();
-    }
-  }
-
-  private async methodsHandler(): Promise<void> {
-    if (!this.response) return;
     try {
       if (!this.method || !this.request)
         throw new AppError(HttpCode.BadRequest, Messages.UnknownMethod);
 
       if (this.method === HttpMethods.GET) {
-        this.GETHandler(this.id, this.response);
+        this.GETHandler(this.id);
       } else if (this.method === HttpMethods.POST) {
         if (this.id) throw new AppError(HttpCode.BadRequest, Messages.RouteInvalid);
-
-        await this.POSTHandler(this.request, this.response);
+        await this.POSTHandler(this.request);
       } else if (this.method === HttpMethods.PUT) {
-        await this.PUTHandler(this.id, this.request, this.response);
+        await this.PUTHandler(this.id, this.request);
       } else if (this.method === HttpMethods.DELETE) {
-        this.DELETEHandler(this.id, this.response);
+        this.DELETEHandler(this.id);
       } else {
         throw new AppError(HttpCode.BadRequest, Messages.UnknownMethod);
       }
@@ -92,46 +96,86 @@ export class UserController {
     }
   }
 
-  private GETHandler(id: string | undefined, response: ServerResponse): void {
+  private GETHandler(id: string | undefined): void {
     if (id) {
-      const resultValidate = this.userService.validateId(id);
-
-      if (!resultValidate.validate)
-        throw new AppError(HttpCode.BadRequest, resultValidate.error);
-
-      const user = this.userService.getOne(id);
-
-      if (!user) throw new AppError(HttpCode.NotFound, Messages.UserNotFound);
-
-      this.sendResponse(HttpCode.Ok, response, user);
+      this.GETOneHandler(id);
     } else {
-      const users = this.userService.getAll();
-      this.sendResponse(HttpCode.Ok, response, users);
+      this.GETAllHandler();
     }
   }
 
-  private async POSTHandler(
-    request: IncomingMessage,
-    response: ServerResponse
-  ): Promise<void> {
-    const body = await this.getBody(request);
+  private GETOneHandler(id: string): void {
+    if (!this.response) return;
 
+    const resultValidate = this.userService.validateId(id);
+
+    if (!resultValidate.validate)
+      throw new AppError(HttpCode.BadRequest, resultValidate.error);
+
+    if (this.clusterMode === ClusterMode.multi && !cluster.isPrimary) {
+      if (process.send) {
+        const getOneUsersRequest: ClusterMessage = {
+          cmd: ClusterCommands.getOneUserRequest,
+          data: { id },
+        };
+        process.send(getOneUsersRequest);
+      }
+    } else {
+      const user = this.userService.getOne(id);
+      if (!user) throw new AppError(HttpCode.NotFound, Messages.UserNotFound);
+
+      this.sendResponse(HttpCode.Ok, this.response, user);
+    }
+  }
+
+  private GETAllHandler(): void {
+    if (!this.response) return;
+
+    if (this.clusterMode === ClusterMode.multi && !cluster.isPrimary) {
+      if (process.send) {
+        const getAllUsersRequest: ClusterMessage = {
+          cmd: ClusterCommands.getAllUsersRequest,
+        };
+        process.send(getAllUsersRequest);
+      }
+    } else {
+      const users = this.userService.getAll();
+      this.sendResponse(HttpCode.Ok, this.response, users);
+    }
+  }
+
+  private async POSTHandler(request: IncomingMessage): Promise<void> {
+    if (!this.response) return;
+
+    const body = await this.getBody(request);
     const resultValidate = this.userService.validateBody(body);
 
     if (!resultValidate.validate)
       throw new AppError(HttpCode.BadRequest, resultValidate.error);
 
     if (resultValidate.body) {
-      const result = this.userService.create(resultValidate.body);
-      this.sendResponse(HttpCode.Created, response, result);
+      if (this.clusterMode === ClusterMode.multi && !cluster.isPrimary) {
+        if (process.send) {
+          const createUserRequest: ClusterMessage = {
+            cmd: ClusterCommands.createUserRequest,
+            data: { body: resultValidate.body },
+          };
+
+          process.send(createUserRequest);
+        }
+      } else {
+        const result = this.userService.create(resultValidate.body);
+        this.sendResponse(HttpCode.Created, this.response, result);
+      }
     }
   }
 
   private async PUTHandler(
     id: string | undefined,
-    request: IncomingMessage,
-    response: ServerResponse
+    request: IncomingMessage
   ): Promise<void> {
+    if (!this.response) return;
+
     const resultValidateId = this.userService.validateId(id);
 
     if (!resultValidateId.validate)
@@ -145,25 +189,47 @@ export class UserController {
       throw new AppError(HttpCode.BadRequest, resultValidateBody.error);
 
     if (resultValidateBody.body) {
-      const result = this.userService.update(id!, resultValidateBody.body);
+      if (this.clusterMode === ClusterMode.multi && !cluster.isPrimary) {
+        if (process.send) {
+          const updateUserRequest: ClusterMessage = {
+            cmd: ClusterCommands.updateUserRequest,
+            data: { id, body: resultValidateBody.body },
+          };
 
-      if (!result) throw new AppError(HttpCode.NotFound, Messages.UserNotFound);
+          process.send(updateUserRequest);
+        }
+      } else {
+        const result = this.userService.update(id!, resultValidateBody.body);
+        if (!result) throw new AppError(HttpCode.NotFound, Messages.UserNotFound);
 
-      this.sendResponse(HttpCode.Ok, response, result);
+        this.sendResponse(HttpCode.Ok, this.response, result);
+      }
     }
   }
 
-  private DELETEHandler(id: string | undefined, response: ServerResponse): void {
+  private DELETEHandler(id: string | undefined): void {
+    if (!this.response) return;
+
     const resultValidate = this.userService.validateId(id);
 
     if (!resultValidate.validate)
       throw new AppError(HttpCode.BadRequest, resultValidate.error);
 
-    const result = this.userService.delete(id!);
+    if (this.clusterMode === ClusterMode.multi && !cluster.isPrimary) {
+      if (process.send) {
+        const deleteUserRequest: ClusterMessage = {
+          cmd: ClusterCommands.deleteUserRequest,
+          data: { id },
+        };
 
-    if (!result) throw new AppError(HttpCode.NotFound, Messages.UserNotFound);
+        process.send(deleteUserRequest);
+      }
+    } else {
+      const result = this.userService.delete(id!);
+      if (!result) throw new AppError(HttpCode.NotFound, Messages.UserNotFound);
 
-    this.sendResponse(HttpCode.NoContent, response);
+      this.sendResponse(HttpCode.NoContent, this.response);
+    }
   }
 
   private getBody(request: IncomingMessage): Promise<Partial<User>> {

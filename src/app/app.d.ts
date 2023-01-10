@@ -7,6 +7,10 @@ export type ClusterMessage = {
     isBalancer?: boolean;
     users?: User[];
     workers?: ClusterWorker[];
+    id?: string;
+    user?: User;
+    body?: Omit<User, 'id'>;
+    ok?: boolean;
   };
 };
 
