@@ -37,6 +37,16 @@ Switch to branch `develop`
 git checkout develop
 ```
 
+## Environment
+
+Rename `.env.example` to `.env` and set environments:
+
+```
+PORT=4000             // server port
+BASE_URL=localhost    // server url
+CLUSTER_MODE=single   // default mode for cluster ( 'single' or 'multi' )
+```
+
 ## Run the application
 
 Development mode
