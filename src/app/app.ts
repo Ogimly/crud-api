@@ -18,13 +18,13 @@ export class App {
 
   private clusterMode = process.env.CLUSTER_MODE ?? DEFAULT_CLUSTER_MODE;
 
-  private router: Router;
-
   private balancer?: Balancer;
 
-  private userController: UserController;
+  private userService = new UserService();
 
-  private userService: UserService;
+  private userController = new UserController(this.clusterMode, this.userService);
+
+  private router = new Router(this.userController);
 
   private _server:
     | http.Server<typeof http.IncomingMessage, typeof http.ServerResponse>
@@ -41,12 +41,6 @@ export class App {
   }
 
   constructor() {
-    this.userService = new UserService();
-
-    this.userController = new UserController(this.clusterMode, this.userService);
-
-    this.router = new Router(this.userController);
-
     if (this.clusterMode === ClusterMode.single)
       this._server = http.createServer(this.router.handler.bind(this.router));
   }
