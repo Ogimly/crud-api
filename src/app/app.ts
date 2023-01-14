@@ -25,7 +25,7 @@ export class App {
 
   private balancer?: Balancer;
 
-  private userService?: UserService;
+  private userService = new UserService();
 
   private userController?: UserController;
 
@@ -51,7 +51,6 @@ export class App {
 
   constructor() {
     if (this.clusterMode === ClusterMode.single) {
-      this.userService = new UserService();
       this.userController = new UserController(this.clusterMode, this.userService);
       this.router = new Router(this.userController);
       this._server = http.createServer(this.router.handler.bind(this.router));
@@ -132,9 +131,7 @@ export class App {
     this.isBalancer = process.env.isBalancer === 'true';
 
     if (this.isDB) {
-      this.userService = new UserService();
-
-      console.log(`DB Worker ${process.pid}: UserService running`);
+      console.log(`Worker DB ${process.pid}: running`);
     } else if (this.isBalancer) {
       this.balancerSendWorkersRequest();
 
@@ -142,7 +139,6 @@ export class App {
 
       this._server = http.createServer(this.balancer.handler.bind(this.balancer));
     } else {
-      this.userService = new UserService();
       this.userController = new UserController(this.clusterMode, this.userService);
       this.router = new Router(this.userController);
 
@@ -190,11 +186,7 @@ export class App {
   }
 
   private DBWorkerRequestHandler({ cmd, data, workerID }: ClusterMessage): void {
-    if (this.isDB && this.userService) {
-      console.log(
-        `DB worker ${process.pid}: ${cmd} received from cluster for ${workerID}`
-      );
-
+    if (this.isDB) {
       const response: ClusterMessage = { cmd: clusterCommandsMap[cmd], workerID };
 
       const id = data?.id;
@@ -270,7 +262,7 @@ export class App {
       };
 
       console.log(
-        `Cluster ${process.pid}: ${cmd} from worker ${fromWorker.process.pid} sent to DB worker ${this.workerDB.process.pid}`
+        `Cluster ${process.pid}: ${cmd} from worker ${fromWorker.process.pid} sent to DB worker`
       );
 
       this.workerDB.send(workerDBRequest);
@@ -284,7 +276,7 @@ export class App {
     const workerDBResponse: ClusterMessage = { cmd, data };
 
     console.log(
-      `Cluster ${process.pid}: ${cmd} from DB worker ${fromWorker.process.pid} sent to worker ${workerID}`
+      `Cluster ${process.pid}: ${cmd} from DB worker sent to worker ${workerID}`
     );
 
     const worker = this.getWorker(workerID);
