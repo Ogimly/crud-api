@@ -104,7 +104,9 @@ export class App {
 
     if (noDB) {
       this.workerDB = cluster.fork({ isDB: noDB, isBalancer: false, workerPort: 0 });
+
       const id = this.workerDB.process.pid;
+
       if (id) this.workers.push({ isDB: noDB, isBalancer: false, port: 0, id });
     } else {
       const noBalancer = this.workers.every(({ isBalancer }) => !isBalancer) && !noDB;

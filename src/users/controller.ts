@@ -14,6 +14,7 @@ import { errorHandler } from '../app/error-handler/error-handler';
 import { User } from './entity';
 import { UserService } from './in-memory-db/service';
 import { ClusterMessage } from '../app/app.d';
+import { UserValidator } from './in-memory-db/validator';
 
 export class UserController {
   method?: string;
@@ -23,6 +24,8 @@ export class UserController {
   request?: IncomingMessage;
 
   response?: ServerResponse;
+
+  private userValidator = new UserValidator();
 
   constructor(private clusterMode: string, private userService: UserService) {
     process.on('message', async (message: ClusterMessage) => {
@@ -107,7 +110,7 @@ export class UserController {
   private GETOneHandler(id: string): void {
     if (!this.response) return;
 
-    const resultValidate = this.userService.validateId(id);
+    const resultValidate = this.userValidator.validateId(id);
 
     if (!resultValidate.validate)
       throw new AppError(HttpCode.BadRequest, resultValidate.error);
@@ -148,7 +151,7 @@ export class UserController {
     if (!this.response) return;
 
     const body = await this.getBody(request);
-    const resultValidate = this.userService.validateBody(body);
+    const resultValidate = this.userValidator.validateBody(body);
 
     if (!resultValidate.validate)
       throw new AppError(HttpCode.BadRequest, resultValidate.error);
@@ -176,14 +179,14 @@ export class UserController {
   ): Promise<void> {
     if (!this.response) return;
 
-    const resultValidateId = this.userService.validateId(id);
+    const resultValidateId = this.userValidator.validateId(id);
 
     if (!resultValidateId.validate)
       throw new AppError(HttpCode.BadRequest, resultValidateId.error);
 
     const body = await this.getBody(request);
 
-    const resultValidateBody = this.userService.validateBody(body);
+    const resultValidateBody = this.userValidator.validateBody(body);
 
     if (!resultValidateBody.validate)
       throw new AppError(HttpCode.BadRequest, resultValidateBody.error);
@@ -210,7 +213,7 @@ export class UserController {
   private DELETEHandler(id: string | undefined): void {
     if (!this.response) return;
 
-    const resultValidate = this.userService.validateId(id);
+    const resultValidate = this.userValidator.validateId(id);
 
     if (!resultValidate.validate)
       throw new AppError(HttpCode.BadRequest, resultValidate.error);
