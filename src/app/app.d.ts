@@ -12,9 +12,11 @@ export type ClusterMessage = {
     body?: Omit<User, 'id'>;
     ok?: boolean;
   };
+  workerID?: number;
 };
 
 export type ClusterWorker = {
+  isDB: boolean;
   isBalancer: boolean;
   id: number;
   port: number;

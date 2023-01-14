@@ -14,7 +14,7 @@ export class Balancer {
   constructor(private baseUrl: string) {}
 
   public set workers(value: ClusterWorker[]) {
-    this._workers = [...value].filter(({ isBalancer }) => !isBalancer);
+    this._workers = [...value].filter(({ isDB, isBalancer }) => !isDB && !isBalancer);
   }
 
   public handler(request: http.IncomingMessage, response: http.ServerResponse): void {
